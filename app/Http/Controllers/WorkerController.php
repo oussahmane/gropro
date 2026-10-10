@@ -51,8 +51,10 @@ class WorkerController extends Controller
         }
 
         $order->load('items');
+        // Count lines on THIS order only — never Product::count() / catalogue size.
+        $orderItemsCount = $order->items()->count();
 
-        return view('worker.order.create', compact('order'));
+        return view('worker.order.create', compact('order', 'orderItemsCount'));
     }
 
     public function updateOrder(Request $request, Order $order)

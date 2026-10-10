@@ -13,14 +13,14 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
-        $orders = Order::with('worker')->orderBy('created_at', 'desc')->get();
+        $orders = Order::with('worker')->withCount('items')->orderBy('created_at', 'desc')->get();
 
         return view('admin.dashboard', compact('orders'));
     }
 
     public function ordersPartial()
     {
-        $orders = Order::with('worker')->orderBy('created_at', 'desc')->get();
+        $orders = Order::with('worker')->withCount('items')->orderBy('created_at', 'desc')->get();
 
         return view('admin.partials.orders_table', compact('orders'));
     }
@@ -28,8 +28,10 @@ class AdminController extends Controller
     public function showOrder(Order $order)
     {
         $order->load(['items', 'worker']);
+        // Count lines on THIS order only — never Product::count() / catalogue size.
+        $orderItemsCount = $order->items()->count();
 
-        return view('admin.orders.show', compact('order'));
+        return view('admin.orders.show', compact('order', 'orderItemsCount'));
     }
 
     public function updateOrderStatus(Request $request, Order $order)

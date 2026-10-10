@@ -25,8 +25,8 @@
                 <div class="card-header bg-white p-4">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                         <label class="form-label fs-4 mb-0">Rechercher un produit</label>
-                        <span id="order-items-count" class="badge bg-primary fs-6 px-3 py-2" role="status" aria-live="polite">
-                            {{ $order->items->count() }} produit(s) dans cette commande
+                        <span id="order-items-count" class="badge bg-primary fs-6 px-3 py-2" role="status" aria-live="polite" data-order-items-count="{{ $orderItemsCount }}">
+                            {{ $orderItemsCount }} article(s) dans cette commande
                         </span>
                     </div>
                     <div class="d-flex gap-2 position-relative">
@@ -192,7 +192,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateOrderItemsCount() {
         const countEl = document.getElementById('order-items-count');
         if (countEl) {
-            countEl.textContent = items.length + ' produit(s) dans cette commande';
+            // Sync with in-memory order lines only — never catalogue size.
+            countEl.dataset.orderItemsCount = String(items.length);
+            countEl.textContent = items.length + ' article(s) dans cette commande';
         }
     }
 
