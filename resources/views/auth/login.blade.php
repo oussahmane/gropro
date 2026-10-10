@@ -19,7 +19,7 @@
                 </div>
                 <h3 class="text-center fw-bold mb-1">{{ config('app.name', 'GroPro') }}</h3>
                 <p class="text-center text-muted mb-4">Connectez-vous à votre compte</p>
-                <form method="POST" action="{{ route('login') }}">
+                <form method="POST" action="/login">
                     @csrf
                     <div class="mb-3">
                         <label for="username" class="form-label fw-medium">Nom d'utilisateur</label>

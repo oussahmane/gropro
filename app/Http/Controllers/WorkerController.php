@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -14,16 +14,17 @@ class WorkerController extends Controller
     public function dashboard()
     {
         $orders = Order::where('worker_id', auth()->id())->orderBy('created_at', 'desc')->get();
+
         return view('worker.dashboard', compact('orders'));
     }
 
     public function createOrder()
     {
         $order = Order::create([
-            'order_number' => 'ORD-' . strtoupper(Str::random(8)),
+            'order_number' => 'ORD-'.strtoupper(Str::random(8)),
             'worker_id' => auth()->id(),
             'customer_name' => '',
-            'status' => 'draft'
+            'status' => 'draft',
         ]);
 
         return redirect()->route('worker.order.edit', $order);
@@ -36,7 +37,7 @@ class WorkerController extends Controller
             return response()->json([]);
         }
 
-        $products = Product::whereRaw('LOWER(designation) LIKE ?', ['%' . strtolower($query) . '%'])
+        $products = Product::whereRaw('LOWER(designation) LIKE ?', ['%'.strtolower($query).'%'])
             ->limit(20)
             ->get(['id', 'designation', 'qtu']);
 
@@ -48,9 +49,12 @@ class WorkerController extends Controller
         if ($order->worker_id !== auth()->id()) {
             abort(403);
         }
-        
+
         $order->load('items');
-        return view('worker.order.create', compact('order'));
+        // Count lines on THIS order only — never Product::count() / catalogue size.
+        $orderItemsCount = $order->items()->count();
+
+        return view('worker.order.create', compact('order', 'orderItemsCount'));
     }
 
     public function updateOrder(Request $request, Order $order)
@@ -78,7 +82,7 @@ class WorkerController extends Controller
             if (array_key_exists('notes', $validated)) {
                 $updateData['notes'] = $validated['notes'];
             }
-            if (!empty($updateData)) {
+            if (! empty($updateData)) {
                 $order->update($updateData);
             }
 
@@ -86,7 +90,9 @@ class WorkerController extends Controller
 
             if (isset($validated['items'])) {
                 foreach ($validated['items'] as $item) {
-                    if ($item['box'] == 0 && $item['units'] == 0) continue;
+                    if ($item['box'] == 0 && $item['units'] == 0) {
+                        continue;
+                    }
                     OrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $item['product_id'] ?? null,

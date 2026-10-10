@@ -4,7 +4,7 @@
 <div class="row" id="app-order">
     <div class="col-12 col-xl-10 mx-auto">
         <h2 class="mb-4">Créer une nouvelle commande</h2>
-        
+
         <form id="orderForm">
             @csrf
             <div class="card shadow-sm mb-4">
@@ -23,7 +23,12 @@
 
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white p-4">
-                    <label class="form-label fs-4 mb-2">Rechercher un produit</label>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <label class="form-label fs-4 mb-0">Rechercher un produit</label>
+                        <span id="order-items-count" class="badge bg-primary fs-6 px-3 py-2" role="status" aria-live="polite" data-order-items-count="{{ $orderItemsCount }}">
+                            {{ $orderItemsCount }} article(s) dans cette commande
+                        </span>
+                    </div>
                     <div class="d-flex gap-2 position-relative">
                         <input type="text" id="searchInput" class="form-control form-control-lg touch-input" placeholder="Tapez pour rechercher des produits...">
                         <button type="button" id="addCustomProductBtn" class="btn btn-outline-primary fw-bold" style="white-space: nowrap;">+ Personnalisé</button>
@@ -184,12 +189,23 @@ document.addEventListener('DOMContentLoaded', function() {
         autoSave();
     }
 
+    function updateOrderItemsCount() {
+        const countEl = document.getElementById('order-items-count');
+        if (countEl) {
+            // Sync with in-memory order lines only — never catalogue size.
+            countEl.dataset.orderItemsCount = String(items.length);
+            countEl.textContent = items.length + ' article(s) dans cette commande';
+        }
+    }
+
     function renderItems() {
         if (items.length === 0) {
             emptyRow.style.display = 'block';
         } else {
             emptyRow.style.display = 'none';
         }
+
+        updateOrderItemsCount();
 
         // Remove old dynamic rows
         document.querySelectorAll('.item-row').forEach(row => row.remove());
