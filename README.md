@@ -24,11 +24,13 @@ sudo -u postgres createdb -O gropro gropro
 cd /path/to/gropro
 cp .env.example .env && php artisan key:generate
 # Set APP_URL to the LAN URL you will open, e.g. http://192.168.100.33:8000
-# Keep SESSION_SECURE_COOKIE=false and SESSION_DOMAIN empty for http://IP access
+# SESSION_DRIVER=file, SESSION_SECURE_COOKIE=false, SESSION_DOMAIN= (empty)
 composer install
 php artisan migrate --seed
-php artisan config:clear && php artisan cache:clear
+php artisan config:clear
+php artisan gropro:clear-sessions
 php artisan serve --host=0.0.0.0 --port=8000
+# If the phone loops: clear site data for the IP, then reopen http://IP:8000/
 ```
 
 ---

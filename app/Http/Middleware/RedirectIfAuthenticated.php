@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Authenticated users on guest routes → role home (never "/").
+ * Authenticated users on guest routes → /admin or /worker only.
+ * NEVER redirects to "/" (that created the phone / ↔ /login bounce).
  */
 class RedirectIfAuthenticated
 {
@@ -21,17 +22,25 @@ class RedirectIfAuthenticated
         $guards = $guards === [] ? [null] : $guards;
 
         foreach ($guards as $guard) {
-            if (Auth::guard($guard)->check()) {
-                $user = Auth::guard($guard)->user();
-                if ($user && $user->active && in_array($user->role, ['admin', 'worker'], true)) {
-                    return LanRedirect::to(LanRedirect::homePath($user));
+            if (! Auth::guard($guard)->check()) {
+                continue;
+            }
+
+            $user = Auth::guard($guard)->user();
+            if ($user && $user->active && in_array($user->role, ['admin', 'worker'], true)) {
+                $target = LanRedirect::homePath($user);
+                if ($target === '/' || $target === '/login') {
+                    $target = $user->role === 'worker' ? '/worker' : '/admin';
                 }
 
-                Auth::guard($guard)->logout();
-                if ($request->hasSession()) {
-                    $request->session()->invalidate();
-                    $request->session()->regenerateToken();
-                }
+                return LanRedirect::to($target);
+            }
+
+            Auth::guard($guard)->logout();
+            if ($request->hasSession()) {
+                $request->session()->forget('url.intended');
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
             }
         }
 

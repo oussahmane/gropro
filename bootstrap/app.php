@@ -16,17 +16,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Do NOT trust all proxies on LAN/artisan serve: clients can send
-        // X-Forwarded-Proto: https and Laravel then redirects to https://… which
-        // phones follow into ERR_TOO_MANY_REDIRECTS. Opt in via TRUSTED_PROXIES.
+        // LAN / artisan serve: trust NO proxies by default (blocks spoofed https:// redirects).
+        // Opt in only behind a real reverse proxy: TRUSTED_PROXIES=127.0.0.1
         $trustedProxies = env('TRUSTED_PROXIES');
         if (is_string($trustedProxies) && $trustedProxies !== '') {
             $middleware->trustProxies(
                 at: $trustedProxies === '*' ? '*' : array_values(array_filter(array_map('trim', explode(',', $trustedProxies)))),
             );
+        } else {
+            $middleware->trustProxies(at: []);
         }
 
-        // Guests → /login (relative via exception renderer). Auth users → role home, NEVER "/".
+        // Auth users → role home only (never "/"). Guests → /login.
         $middleware->redirectGuestsTo('/login');
         $middleware->redirectUsersTo(fn () => LanRedirect::homePath());
 
@@ -40,7 +41,6 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
 
-        // Relative /login for unauthenticated users. Never store "/" as url.intended.
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => $e->getMessage()], 401);
