@@ -6,15 +6,14 @@ use App\Http\Controllers\WorkerController;
 use Illuminate\Support\Facades\Route;
 
 /*
-| Guests: render login at "/" (no hop). Authenticated: relative redirect to role home.
-| Avoids / ↔ /login loops and https:// Location rewrites from spoofed Forwarded-Proto.
+| Cookie-bounce rules (stale phone tabs):
+| - GET / always 200 login for guests (never 302 → /login)
+| - GET /login always 200 for guests; auth users → /admin|/worker (never → /)
+| - Auth checks live in AuthController (not guest middleware HOME="/")
 */
 Route::get('/', [AuthController::class, 'home'])->name('home');
-
-Route::middleware('guest')->group(function () {
-    Route::get('login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('login', [AuthController::class, 'login']);
-});
+Route::get('login', [AuthController::class, 'showLogin'])->name('login');
+Route::post('login', [AuthController::class, 'login']);
 
 Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');

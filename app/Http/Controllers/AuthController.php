@@ -9,19 +9,28 @@ use Illuminate\Support\Facades\Auth;
 class AuthController extends Controller
 {
     /**
-     * Entry URL for phones: guests get the login form (no redirect hop).
+     * App entry. Guests always get HTTP 200 login (never redirect to /login).
+     * Authenticated users go to role home — never to /login.
      */
-    public function home()
+    public function home(Request $request)
     {
-        if (Auth::check()) {
+        if ($this->hasUsableAuthenticatedUser($request)) {
             return LanRedirect::to(LanRedirect::homePath());
         }
 
-        return $this->showLogin();
+        return view('auth.login');
     }
 
-    public function showLogin()
+    /**
+     * Login form. Guests: 200. Authenticated: role home (never "/").
+     * Handled in-controller so we do not depend on guest middleware HOME="/".
+     */
+    public function showLogin(Request $request)
     {
+        if ($this->hasUsableAuthenticatedUser($request)) {
+            return LanRedirect::to(LanRedirect::homePath());
+        }
+
         return view('auth.login');
     }
 
@@ -33,26 +42,23 @@ class AuthController extends Controller
         ]);
 
         if (Auth::attempt($credentials)) {
+            // Drop stale intended targets (especially "/") before regenerating.
+            $request->session()->forget('url.intended');
             $request->session()->regenerate();
 
             $user = Auth::user();
-            if (! $user->active) {
+            if (! $user || ! $user->active) {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
 
-                return back()->withErrors([
+                return LanRedirect::toLogin()->withErrors([
                     'username' => 'Your account is inactive.',
-                ])->onlyInput('username');
+                ]);
             }
 
-            $fallback = LanRedirect::homePath($user);
-            $intended = LanRedirect::safeInternalPath(
-                $request->session()->pull('url.intended'),
-                $fallback,
-            );
-
-            return LanRedirect::to($intended);
+            // Intended was cleared; always land on role home after login.
+            return LanRedirect::to(LanRedirect::homePath($user));
         }
 
         return back()->withErrors([
@@ -67,6 +73,30 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return LanRedirect::to('/login');
+        return LanRedirect::toLogin();
+    }
+
+    /**
+     * True only when session points at an active admin/worker.
+     * Half-auth / stale cookies are wiped so they cannot bounce / ↔ /login.
+     */
+    private function hasUsableAuthenticatedUser(Request $request): bool
+    {
+        if (! Auth::check()) {
+            return false;
+        }
+
+        $user = Auth::user();
+        if (! $user || ! $user->active || ! in_array($user->role, ['admin', 'worker'], true)) {
+            Auth::logout();
+            if ($request->hasSession()) {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
+
+            return false;
+        }
+
+        return true;
     }
 }

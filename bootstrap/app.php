@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             );
         }
 
+        // Guests → /login (relative via exception renderer). Auth users → role home, NEVER "/".
         $middleware->redirectGuestsTo('/login');
         $middleware->redirectUsersTo(fn () => LanRedirect::homePath());
 
@@ -39,19 +40,20 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
 
-        // Relative /login for unauthenticated users (scheme/host-safe on LAN phones).
+        // Relative /login for unauthenticated users. Never store "/" as url.intended.
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => $e->getMessage()], 401);
             }
 
             if ($request->hasSession()) {
+                $request->session()->forget('url.intended');
                 $path = '/'.ltrim($request->path(), '/');
                 if ($path !== '/' && $path !== '/login') {
                     $request->session()->put('url.intended', $path);
                 }
             }
 
-            return LanRedirect::to('/login');
+            return LanRedirect::toLogin();
         });
     })->create();

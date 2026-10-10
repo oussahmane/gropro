@@ -22,7 +22,7 @@ class RoleMiddleware
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return LanRedirect::to('/login')
+            return LanRedirect::toLogin()
                 ->withErrors(['username' => 'Your account is inactive.']);
         }
 

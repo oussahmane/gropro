@@ -9,8 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Relative redirect for authenticated users hitting guest routes.
- * Avoids https:// Location when Host/X-Forwarded-* are untrusted.
+ * Authenticated users on guest routes → role home (never "/").
  */
 class RedirectIfAuthenticated
 {
@@ -23,7 +22,16 @@ class RedirectIfAuthenticated
 
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
-                return LanRedirect::to(LanRedirect::homePath());
+                $user = Auth::guard($guard)->user();
+                if ($user && $user->active && in_array($user->role, ['admin', 'worker'], true)) {
+                    return LanRedirect::to(LanRedirect::homePath($user));
+                }
+
+                Auth::guard($guard)->logout();
+                if ($request->hasSession()) {
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                }
             }
         }
 

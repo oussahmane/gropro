@@ -17,6 +17,13 @@ class AuthRedirectTest extends TestCase
             ->assertSee('Connectez-vous', false);
     }
 
+    public function test_guest_login_always_returns_200(): void
+    {
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('Connectez-vous', false);
+    }
+
     public function test_guest_login_ok_and_cookies_are_http_friendly(): void
     {
         $response = $this->get('/login');
@@ -39,7 +46,6 @@ class AuthRedirectTest extends TestCase
             'X-Forwarded-Host' => '192.168.100.33:8000',
         ])->get('/');
 
-        // Guests get 200 login page (no redirect). If any Location appears, it must not be https.
         $response->assertOk();
         $location = $response->headers->get('Location');
         $this->assertTrue($location === null || ! str_contains($location, 'https://'));
@@ -48,12 +54,8 @@ class AuthRedirectTest extends TestCase
             'X-Forwarded-Proto' => 'https',
         ])->actingAs(User::factory()->create(['role' => 'admin']))->get('/login');
 
-        $login->assertRedirect();
+        $login->assertRedirect('/admin');
         $this->assertStringNotContainsString('https://', (string) $login->headers->get('Location'));
-        $this->assertTrue(
-            str_ends_with((string) $login->headers->get('Location'), '/admin')
-            || $login->headers->get('Location') === '/admin'
-        );
     }
 
     public function test_authenticated_admin_does_not_loop_between_root_and_login(): void
@@ -67,6 +69,46 @@ class AuthRedirectTest extends TestCase
         $this->actingAs($admin)
             ->get('/login')
             ->assertRedirect('/admin');
+    }
+
+    public function test_authenticated_with_intended_root_cannot_bounce_slash_and_login(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        // Stale phone tab: session auth + url.intended=/ (classic bounce fuel).
+        $fromLogin = $this->actingAs($admin)
+            ->withSession(['url.intended' => '/'])
+            ->get('/login');
+
+        $fromLogin->assertRedirect('/admin');
+        $this->assertNotSame('/', $fromLogin->headers->get('Location'));
+        $this->assertNotSame('/login', $fromLogin->headers->get('Location'));
+
+        $fromRoot = $this->actingAs($admin)
+            ->withSession(['url.intended' => '/'])
+            ->get('/');
+
+        $fromRoot->assertRedirect('/admin');
+
+        // Manual multi-hop: at most one redirect, never back to the other entry.
+        $hop1 = $this->actingAs($admin)->withSession(['url.intended' => '/'])->get('/login');
+        $hop1->assertRedirect('/admin');
+
+        $hop2 = $this->actingAs($admin)->get('/admin');
+        $hop2->assertOk();
+
+        // followingRedirects must settle (framework follows; we assert final 200).
+        $this->actingAs($admin)
+            ->withSession(['url.intended' => '/'])
+            ->followingRedirects()
+            ->get('/login')
+            ->assertOk();
+
+        $this->actingAs($admin)
+            ->withSession(['url.intended' => '/'])
+            ->followingRedirects()
+            ->get('/')
+            ->assertOk();
     }
 
     public function test_authenticated_follow_root_reaches_dashboard_in_one_hop(): void
@@ -118,6 +160,24 @@ class AuthRedirectTest extends TestCase
         $this->get('/')->assertRedirect('/admin');
     }
 
+    public function test_login_ignores_intended_slash(): void
+    {
+        $admin = User::factory()->create([
+            'username' => 'intendslash',
+            'role' => 'admin',
+            'password' => 'password',
+        ]);
+
+        $this->withSession(['url.intended' => '/'])
+            ->post('/login', [
+                'username' => 'intendslash',
+                'password' => 'password',
+            ])
+            ->assertRedirect('/admin');
+
+        $this->assertAuthenticatedAs($admin);
+    }
+
     public function test_https_intended_url_is_ignored_after_login(): void
     {
         $admin = User::factory()->create([
@@ -145,5 +205,19 @@ class AuthRedirectTest extends TestCase
             ->get('/admin')
             ->assertOk()
             ->assertSee('Connectez-vous', false);
+    }
+
+    public function test_inactive_authenticated_user_gets_login_200_not_bounce(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'active' => false]);
+
+        $this->actingAs($admin)
+            ->get('/')
+            ->assertOk()
+            ->assertSee('Connectez-vous', false);
+
+        $this->actingAs($admin)
+            ->get('/login')
+            ->assertOk();
     }
 }
