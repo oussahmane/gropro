@@ -4,6 +4,9 @@
     <td>{{ $order->customer_name }}</td>
     <td>{{ $order->worker->name }}</td>
     <td>
+        <span class="badge bg-primary" data-order-items-count="{{ $order->items_count }}">{{ $order->items_count }}</span>
+    </td>
+    <td>
         @php
             $statusLabels = [
                 'received' => 'Reçue',
@@ -37,6 +40,6 @@
 </tr>
 @empty
 <tr>
-    <td colspan="6" class="text-center py-4">Aucune commande trouvée.</td>
+    <td colspan="7" class="text-center py-4">Aucune commande trouvée.</td>
 </tr>
 @endforelse

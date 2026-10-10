@@ -56,8 +56,11 @@
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header bg-white">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5 class="mb-0">Articles de la commande</h5>
+                <span id="order-items-count" class="badge bg-primary fs-6 px-3 py-2" role="status" data-order-items-count="{{ $orderItemsCount }}">
+                    {{ $orderItemsCount }} article(s) dans cette commande
+                </span>
             </div>
             <div class="card-body p-0 table-responsive">
                 <table class="table mb-0">

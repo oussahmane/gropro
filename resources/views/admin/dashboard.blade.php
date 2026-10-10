@@ -26,6 +26,7 @@
                             <th>N° Commande</th>
                             <th>Client</th>
                             <th>Employé</th>
+                            <th>Articles</th>
                             <th>Statut</th>
                             <th>Date</th>
                             <th>Actions</th>
