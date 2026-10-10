@@ -3,8 +3,11 @@
 @section('content')
 <div class="row" id="app-order">
     <div class="col-12 col-xl-10 mx-auto">
-        <h2 class="mb-4">Créer une nouvelle commande</h2>
-        
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <h2 class="mb-0">Créer une nouvelle commande</h2>
+            <small class="text-muted">{{ $productsCount }} produit(s) dans le catalogue</small>
+        </div>
+
         <form id="orderForm">
             @csrf
             <div class="card shadow-sm mb-4">
