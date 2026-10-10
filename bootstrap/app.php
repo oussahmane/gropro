@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\RoleMiddleware;
+use App\Support\LanRedirect;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,27 +16,42 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Trust nginx when present. Relative redirects below stay IP/port-agnostic.
-        $middleware->trustProxies(at: '*');
+        // Do NOT trust all proxies on LAN/artisan serve: clients can send
+        // X-Forwarded-Proto: https and Laravel then redirects to https://… which
+        // phones follow into ERR_TOO_MANY_REDIRECTS. Opt in via TRUSTED_PROXIES.
+        $trustedProxies = env('TRUSTED_PROXIES');
+        if (is_string($trustedProxies) && $trustedProxies !== '') {
+            $middleware->trustProxies(
+                at: $trustedProxies === '*' ? '*' : array_values(array_filter(array_map('trim', explode(',', $trustedProxies)))),
+            );
+        }
 
-        // Guest middleware default is "/" — must not loop with "/" → "/login".
         $middleware->redirectGuestsTo('/login');
-        $middleware->redirectUsersTo(function () {
-            $user = auth()->user();
-
-            return match ($user?->role) {
-                'admin' => '/admin',
-                'worker' => '/worker',
-                default => '/login',
-            };
-        });
+        $middleware->redirectUsersTo(fn () => LanRedirect::homePath());
 
         $middleware->alias([
             'role' => RoleMiddleware::class,
+            'guest' => RedirectIfAuthenticated::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // Relative /login for unauthenticated users (scheme/host-safe on LAN phones).
+        $exceptions->render(function (AuthenticationException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 401);
+            }
+
+            if ($request->hasSession()) {
+                $path = '/'.ltrim($request->path(), '/');
+                if ($path !== '/' && $path !== '/login') {
+                    $request->session()->put('url.intended', $path);
+                }
+            }
+
+            return LanRedirect::to('/login');
+        });
     })->create();

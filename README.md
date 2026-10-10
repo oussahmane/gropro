@@ -115,8 +115,8 @@ sudo -u www-data php artisan key:generate
 
 Edit the `.env` file (`sudo nano .env`) and set database + LAN session settings:
 ```
-# Use the exact URL you open (include :8000 when using php artisan serve)
-APP_URL=http://192.168.1.10
+# Use the exact URL phones open (include :8000 for artisan serve)
+APP_URL=http://192.168.100.33:8000
 
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
@@ -129,9 +129,12 @@ SESSION_DRIVER=database
 SESSION_DOMAIN=
 SESSION_SECURE_COOKIE=false
 SESSION_SAME_SITE=lax
+
+# Leave TRUSTED_PROXIES unset for artisan serve / direct PHP-FPM.
+# Only set behind a real reverse proxy if needed.
 ```
 
-`SESSION_SECURE_COOKIE=false` and an empty `SESSION_DOMAIN` are required so Firefox/Chrome/Edge keep the session on plain HTTP LAN IPs. Set `APP_URL` to whatever host/port you browse (e.g. `http://192.168.100.33:8000`).
+`SESSION_SECURE_COOKIE=false` and an empty `SESSION_DOMAIN` are required so phone browsers keep the session on plain HTTP LAN IPs. Do not enable blanket trusted proxies on LAN — spoofed `X-Forwarded-Proto: https` was causing `https://` redirects and phone redirect loops.
 
 Run database migrations and seed the initial admin account:
 ```bash

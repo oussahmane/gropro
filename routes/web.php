@@ -3,20 +3,13 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\WorkerController;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 /*
-| Authenticated users must NOT be sent to /login from here: the guest
-| middleware sends them back to "/", which caused a Firefox/Chrome redirect loop.
+| Guests: render login at "/" (no hop). Authenticated: relative redirect to role home.
+| Avoids / ↔ /login loops and https:// Location rewrites from spoofed Forwarded-Proto.
 */
-Route::get('/', function () {
-    if (Auth::check()) {
-        return redirect(Auth::user()->role === 'admin' ? '/admin' : '/worker');
-    }
-
-    return redirect('/login');
-});
+Route::get('/', [AuthController::class, 'home'])->name('home');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthController::class, 'showLogin'])->name('login');

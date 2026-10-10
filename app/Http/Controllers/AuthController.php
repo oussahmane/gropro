@@ -2,11 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\LanRedirect;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
+    /**
+     * Entry URL for phones: guests get the login form (no redirect hop).
+     */
+    public function home()
+    {
+        if (Auth::check()) {
+            return LanRedirect::to(LanRedirect::homePath());
+        }
+
+        return $this->showLogin();
+    }
+
     public function showLogin()
     {
         return view('auth.login');
@@ -25,16 +38,21 @@ class AuthController extends Controller
             $user = Auth::user();
             if (! $user->active) {
                 Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
 
                 return back()->withErrors([
                     'username' => 'Your account is inactive.',
                 ])->onlyInput('username');
             }
 
-            // Relative paths: work for any LAN IP/port without relying on APP_URL.
-            return redirect()->intended(
-                $user->role === 'admin' ? '/admin' : '/worker'
+            $fallback = LanRedirect::homePath($user);
+            $intended = LanRedirect::safeInternalPath(
+                $request->session()->pull('url.intended'),
+                $fallback,
             );
+
+            return LanRedirect::to($intended);
         }
 
         return back()->withErrors([
@@ -49,6 +67,6 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login');
+        return LanRedirect::to('/login');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\LanRedirect;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,9 +22,11 @@ class RoleMiddleware
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect('/login')->withErrors(['username' => 'Your account is inactive.']);
+            return LanRedirect::to('/login')
+                ->withErrors(['username' => 'Your account is inactive.']);
         }
 
+        // Wrong role: 403 (not a redirect) — avoids /admin ↔ /worker ping-pong.
         if ($request->user()->role !== $role) {
             abort(403, 'Unauthorized action.');
         }
