@@ -3,7 +3,7 @@
 @section('content')
 <div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
             <div>
                 <h2 class="page-title mb-0">Tableau de bord</h2>
                 <p class="page-subtitle mb-0">Vue d'ensemble des commandes en temps réel</p>
@@ -12,6 +12,13 @@
                 <span class="d-inline-block rounded-circle bg-success me-1" style="width:8px;height:8px;"></span>
                 Mise à jour auto.
             </span>
+        </div>
+
+        <div id="global-products-count" class="card shadow-sm mb-4 border-left-accent" role="status" aria-live="polite">
+            <div class="card-body py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="fw-semibold fs-5 mb-0">Produits dans le catalogue</span>
+                <span class="badge bg-primary fs-5 px-3 py-2">{{ $productsCount }}</span>
+            </div>
         </div>
         
         <div class="card">

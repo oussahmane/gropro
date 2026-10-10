@@ -3,9 +3,13 @@
 @section('content')
 <div class="row" id="app-order">
     <div class="col-12 col-xl-10 mx-auto">
-        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-            <h2 class="mb-0">Créer une nouvelle commande</h2>
-            <small class="text-muted">{{ $productsCount }} produit(s) dans le catalogue</small>
+        <h2 class="mb-3">Créer une nouvelle commande</h2>
+
+        <div id="global-products-count" class="card shadow-sm mb-4 border-left-accent" role="status" aria-live="polite">
+            <div class="card-body py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="fw-semibold fs-5 mb-0">Produits dans le catalogue</span>
+                <span class="badge bg-primary fs-5 px-3 py-2">{{ $productsCount }}</span>
+            </div>
         </div>
 
         <form id="orderForm">
@@ -26,7 +30,10 @@
 
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white p-4">
-                    <label class="form-label fs-4 mb-2">Rechercher un produit</label>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <label class="form-label fs-4 mb-0">Rechercher un produit</label>
+                        <span class="text-muted fw-medium">Catalogue : <strong id="global-products-count-inline">{{ $productsCount }}</strong> produit(s)</span>
+                    </div>
                     <div class="d-flex gap-2 position-relative">
                         <input type="text" id="searchInput" class="form-control form-control-lg touch-input" placeholder="Tapez pour rechercher des produits...">
                         <button type="button" id="addCustomProductBtn" class="btn btn-outline-primary fw-bold" style="white-space: nowrap;">+ Personnalisé</button>
