@@ -8,12 +8,13 @@ use Tests\TestCase;
 class ExampleTest extends TestCase
 {
     /**
-     * Guests hitting `/` are sent to login (auth gate).
+     * Guests hitting `/` get the login page (200) — never a bounce to /login.
      */
-    public function test_the_application_redirects_guests_to_login(): void
+    public function test_the_application_returns_a_successful_response(): void
     {
         $response = $this->get('/');
 
-        $response->assertRedirect('/login');
+        $response->assertOk();
+        $response->assertSee('Connectez-vous', false);
     }
 }
