@@ -2,8 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\LanRedirect;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class RoleMiddleware
@@ -16,10 +18,15 @@ class RoleMiddleware
     public function handle(Request $request, Closure $next, string $role): Response
     {
         if (! $request->user() || ! $request->user()->active) {
-            auth()->logout();
-            return redirect()->route('login')->withErrors(['active' => 'Your account is inactive.']);
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return LanRedirect::toLogin()
+                ->withErrors(['username' => 'Your account is inactive.']);
         }
 
+        // Wrong role: 403 (not a redirect) — avoids /admin ↔ /worker ping-pong.
         if ($request->user()->role !== $role) {
             abort(403, 'Unauthorized action.');
         }
