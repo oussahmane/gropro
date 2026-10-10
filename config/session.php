@@ -18,7 +18,8 @@ return [
     |
     */
 
-    'driver' => env('SESSION_DRIVER', 'database'),
+    // LAN prototype default: file (easy to wipe; no DB session sticky issues).
+    'driver' => env('SESSION_DRIVER', 'file'),
 
     /*
     |--------------------------------------------------------------------------
@@ -156,7 +157,10 @@ return [
     |
     */
 
-    'domain' => env('SESSION_DOMAIN'),
+    // Empty/null → host-only cookie (required for raw IP hosts on phones).
+    'domain' => ($sessionDomain = env('SESSION_DOMAIN')) === null || $sessionDomain === '' || $sessionDomain === 'null'
+        ? null
+        : $sessionDomain,
 
     /*
     |--------------------------------------------------------------------------
@@ -169,7 +173,8 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // Explicit bool: empty env must NOT fall through to request->isSecure().
+    'secure' => filter_var(env('SESSION_SECURE_COOKIE', false), FILTER_VALIDATE_BOOLEAN),
 
     /*
     |--------------------------------------------------------------------------
@@ -199,7 +204,7 @@ return [
     |
     */
 
-    'same_site' => env('SESSION_SAME_SITE', 'lax'),
+    'same_site' => env('SESSION_SAME_SITE', 'lax') ?: 'lax',
 
     /*
     |--------------------------------------------------------------------------
