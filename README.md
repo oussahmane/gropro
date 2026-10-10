@@ -23,6 +23,7 @@ sudo -u postgres createuser -P gropro   # password: 1994
 sudo -u postgres createdb -O gropro gropro
 cd /path/to/gropro
 cp .env.example .env && php artisan key:generate
+# Set APP_URL to the LAN URL you will open, e.g. http://192.168.100.33:8000
 # Keep SESSION_SECURE_COOKIE=false and SESSION_DOMAIN empty for http://IP access
 composer install
 php artisan migrate --seed
@@ -114,6 +115,7 @@ sudo -u www-data php artisan key:generate
 
 Edit the `.env` file (`sudo nano .env`) and set database + LAN session settings:
 ```
+# Use the exact URL you open (include :8000 when using php artisan serve)
 APP_URL=http://192.168.1.10
 
 DB_CONNECTION=pgsql
@@ -129,7 +131,7 @@ SESSION_SECURE_COOKIE=false
 SESSION_SAME_SITE=lax
 ```
 
-`SESSION_SECURE_COOKIE=false` and an empty `SESSION_DOMAIN` are required so Chrome/Edge keep the session on plain HTTP LAN IPs.
+`SESSION_SECURE_COOKIE=false` and an empty `SESSION_DOMAIN` are required so Firefox/Chrome/Edge keep the session on plain HTTP LAN IPs. Set `APP_URL` to whatever host/port you browse (e.g. `http://192.168.100.33:8000`).
 
 Run database migrations and seed the initial admin account:
 ```bash

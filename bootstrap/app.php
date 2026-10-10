@@ -13,8 +13,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Trust nginx (or any reverse proxy) so scheme/host stay correct on LAN HTTP.
+        // Trust nginx when present. Relative redirects below stay IP/port-agnostic.
         $middleware->trustProxies(at: '*');
+
+        // Guest middleware default is "/" — must not loop with "/" → "/login".
+        $middleware->redirectGuestsTo('/login');
+        $middleware->redirectUsersTo(function () {
+            $user = auth()->user();
+
+            return match ($user?->role) {
+                'admin' => '/admin',
+                'worker' => '/worker',
+                default => '/login',
+            };
+        });
 
         $middleware->alias([
             'role' => RoleMiddleware::class,

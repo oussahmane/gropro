@@ -21,17 +21,19 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
-            
+
             $user = Auth::user();
-            if (!$user->active) {
+            if (! $user->active) {
                 Auth::logout();
+
                 return back()->withErrors([
                     'username' => 'Your account is inactive.',
                 ])->onlyInput('username');
             }
 
+            // Relative paths: work for any LAN IP/port without relying on APP_URL.
             return redirect()->intended(
-                $user->role === 'admin' ? route('admin.dashboard') : route('worker.dashboard')
+                $user->role === 'admin' ? '/admin' : '/worker'
             );
         }
 
@@ -47,6 +49,6 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect('/login');
     }
 }
