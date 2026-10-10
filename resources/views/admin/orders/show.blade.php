@@ -3,16 +3,9 @@
 @section('content')
 <div class="row">
     <div class="col-12 col-lg-8 mx-auto">
-        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-            <h2 class="mb-0">Commande {{ $order->order_number }}</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Commande {{ $order->order_number }}</h2>
             <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary">Retour au tableau de bord</a>
-        </div>
-
-        <div id="global-products-count" class="card shadow-sm mb-4 border-left-accent" role="status" aria-live="polite">
-            <div class="card-body py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <span class="fw-semibold fs-5 mb-0">Produits dans le catalogue</span>
-                <span class="badge bg-primary fs-5 px-3 py-2">{{ $productsCount }}</span>
-            </div>
         </div>
 
         <div class="card shadow-sm mb-4">
@@ -63,8 +56,11 @@
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header bg-white">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5 class="mb-0">Articles de la commande</h5>
+                <span id="order-items-count" class="badge bg-primary fs-6 px-3 py-2" role="status">
+                    {{ $order->items->count() }} produit(s) dans cette commande
+                </span>
             </div>
             <div class="card-body p-0 table-responsive">
                 <table class="table mb-0">

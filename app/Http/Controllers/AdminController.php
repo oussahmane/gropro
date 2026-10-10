@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,9 +14,8 @@ class AdminController extends Controller
     public function dashboard()
     {
         $orders = Order::with('worker')->orderBy('created_at', 'desc')->get();
-        $productsCount = Product::count();
 
-        return view('admin.dashboard', compact('orders', 'productsCount'));
+        return view('admin.dashboard', compact('orders'));
     }
 
     public function ordersPartial()
@@ -30,9 +28,8 @@ class AdminController extends Controller
     public function showOrder(Order $order)
     {
         $order->load(['items', 'worker']);
-        $productsCount = Product::count();
 
-        return view('admin.orders.show', compact('order', 'productsCount'));
+        return view('admin.orders.show', compact('order'));
     }
 
     public function updateOrderStatus(Request $request, Order $order)

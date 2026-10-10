@@ -51,9 +51,8 @@ class WorkerController extends Controller
         }
 
         $order->load('items');
-        $productsCount = Product::count();
 
-        return view('worker.order.create', compact('order', 'productsCount'));
+        return view('worker.order.create', compact('order'));
     }
 
     public function updateOrder(Request $request, Order $order)
