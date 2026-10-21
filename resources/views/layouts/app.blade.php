@@ -175,7 +175,7 @@
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('admin.workers.*') ? 'active' : '' }}" href="{{ route('admin.workers.index') }}">Employés</a></li>
                     @else
                         <li class="nav-item"><a class="nav-link {{ request()->routeIs('worker.dashboard') ? 'active' : '' }}" href="{{ route('worker.dashboard') }}">Mes Commandes</a></li>
-                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('worker.order.*') ? 'active' : '' }}" href="{{ route('worker.order.create') }}">Nouvelle Commande</a></li>
+                        <li class="nav-item"><a class="nav-link {{ request()->routeIs('worker.order.*') ? 'active' : '' }}" href="{{ route('worker.order.create') }}" @if(request()->routeIs('worker.order.edit')) target="_blank" rel="noopener noreferrer" @endif>Nouvelle Commande</a></li>
                     @endif
                 </ul>
                 <ul class="navbar-nav">

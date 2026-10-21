@@ -4,10 +4,34 @@ This application is built for a wholesale business to replace handwritten order 
 
 ## Architecture & Tech Stack
 
-- **Backend**: Laravel (PHP 8+)
-- **Database**: PostgreSQL (or SQLite for quick local development)
+- **Backend**: Laravel 13 (PHP 8.3+)
+- **Database**: PostgreSQL
 - **Frontend**: Blade, HTML, CSS (Bootstrap 5), vanilla JS
 - **Server**: Nginx & PHP-FPM
+- **Sessions / cache / queues**: database drivers (no Redis)
+
+---
+
+## Arch Linux (dev) — PHP pgsql
+
+```bash
+sudo pacman -Syu php php-pgsql php-fpm postgresql nginx composer
+# Enable extensions (uncomment if needed):
+#   /etc/php/php.ini → extension=pgsql and extension=pdo_pgsql
+sudo systemctl enable --now postgresql nginx
+sudo -u postgres createuser -P gropro   # password: 1994
+sudo -u postgres createdb -O gropro gropro
+cd /path/to/gropro
+cp .env.example .env && php artisan key:generate
+# Set APP_URL to the LAN URL you will open, e.g. http://192.168.100.33:8000
+# SESSION_DRIVER=file, SESSION_SECURE_COOKIE=false, SESSION_DOMAIN= (empty)
+composer install
+php artisan migrate --seed
+php artisan config:clear
+php artisan gropro:clear-sessions
+php artisan serve --host=0.0.0.0 --port=8000
+# If the phone loops: clear site data for the IP, then reopen http://IP:8000/
+```
 
 ---
 
@@ -32,7 +56,7 @@ Install PHP and necessary extensions:
 ```bash
 sudo add-apt-repository ppa:ondrej/php -y
 sudo apt update
-sudo apt install php8.3-fpm php8.3-cli php8.3-pgsql php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip -y
+sudo apt install php8.5-fpm php8.5-cli php8.5-pgsql php8.5-mbstring php8.5-xml php8.5-curl php8.5-zip php8.5-intl -y
 ```
 
 Install Composer:
@@ -55,11 +79,11 @@ Inside the PostgreSQL prompt (`postgres=#`):
 
 ```sql
 CREATE DATABASE gropro;
-CREATE USER gropro_user WITH ENCRYPTED PASSWORD 'secure_password_here';
-GRANT ALL PRIVILEGES ON DATABASE gropro TO gropro_user;
+CREATE USER gropro WITH ENCRYPTED PASSWORD '1994';
+GRANT ALL PRIVILEGES ON DATABASE gropro TO gropro;
 -- Important: Transfer schema ownership
 \c gropro
-GRANT ALL ON SCHEMA public TO gropro_user;
+GRANT ALL ON SCHEMA public TO gropro;
 \q
 exit
 ```
@@ -91,15 +115,28 @@ sudo -u www-data cp .env.example .env
 sudo -u www-data php artisan key:generate
 ```
 
-Edit the `.env` file (`sudo nano .env`) and set your database connection details:
+Edit the `.env` file (`sudo nano .env`) and set database + LAN session settings:
 ```
+# Use the exact URL phones open (include :8000 for artisan serve)
+APP_URL=http://192.168.100.33:8000
+
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_DATABASE=gropro
-DB_USERNAME=gropro_user
-DB_PASSWORD=secure_password_here
+DB_USERNAME=gropro
+DB_PASSWORD=1994
+
+SESSION_DRIVER=database
+SESSION_DOMAIN=
+SESSION_SECURE_COOKIE=false
+SESSION_SAME_SITE=lax
+
+# Leave TRUSTED_PROXIES unset for artisan serve / direct PHP-FPM.
+# Only set behind a real reverse proxy if needed.
 ```
+
+`SESSION_SECURE_COOKIE=false` and an empty `SESSION_DOMAIN` are required so phone browsers keep the session on plain HTTP LAN IPs. Do not enable blanket trusted proxies on LAN — spoofed `X-Forwarded-Proto: https` was causing `https://` redirects and phone redirect loops.
 
 Run database migrations and seed the initial admin account:
 ```bash
@@ -116,12 +153,12 @@ Create a new Nginx configuration file:
 sudo nano /etc/nginx/sites-available/gropro
 ```
 
-Paste the following configuration (replace `your_server_ip` with your actual server IP, e.g., `192.168.1.30`):
+Paste the following configuration (server IP `192.168.1.10`):
 
 ```nginx
 server {
     listen 80;
-    server_name your_server_ip;
+    server_name 192.168.1.10;
     root /var/www/gropro/public;
 
     add_header X-Frame-Options "SAMEORIGIN";
@@ -141,7 +178,7 @@ server {
     error_page 404 /index.php;
 
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+        fastcgi_pass unix:/var/run/php/php8.5-fpm.sock;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
         fastcgi_hide_header X-Powered-By;
@@ -168,14 +205,14 @@ Nginx, PHP-FPM, and PostgreSQL are configured to start automatically on Ubuntu b
 
 ```bash
 sudo systemctl enable nginx
-sudo systemctl enable php8.3-fpm
+sudo systemctl enable php8.5-fpm
 sudo systemctl enable postgresql
 ```
 
 ### 7. Tablet Access
 
 Workers can access the application by connecting to the local Wi-Fi network and entering the server's IP address in their browser:
-`http://192.168.1.30`
+`http://192.168.1.10`
 
 ---
 

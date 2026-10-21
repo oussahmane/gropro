@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            $table->text('notes')->nullable()->after('status');
+            // No ->after(): MySQL-only column ordering; PostgreSQL ignores/rejects it.
+            $table->text('notes')->nullable();
         });
     }
 

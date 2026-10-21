@@ -3,7 +3,30 @@
 @section('content')
 <div class="row" id="app-order">
     <div class="col-12 col-xl-10 mx-auto">
-        <h2 class="mb-4">Créer une nouvelle commande</h2>
+        @php
+            $statusLabels = ['draft' => 'brouillon', 'received' => 'reçue', 'processing' => 'en cours', 'completed' => 'terminée', 'cancelled' => 'annulée'];
+        @endphp
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+            <div>
+                <h2 class="mb-1">
+                    @if(trim($order->customer_name) !== '')
+                        Commande — {{ $order->customer_name }}
+                    @else
+                        Nouvelle commande
+                    @endif
+                </h2>
+                <small class="text-muted">{{ $order->order_number }} · {{ $statusLabels[$order->status] ?? $order->status }}</small>
+                <div id="orderSyncStatus" class="order-sync-status order-sync-status--saved mt-1" data-status="saved" role="status" aria-live="polite">Enregistré</div>
+            </div>
+            {{-- Open another customer order in a separate browser tab; this page stays on $order. --}}
+            <a href="{{ route('worker.order.create') }}"
+               class="btn btn-outline-primary touch-btn"
+               id="newOrderBrowserTabBtn"
+               target="_blank"
+               rel="noopener noreferrer">
+                + Nouvelle commande
+            </a>
+        </div>
         
         <form id="orderForm">
             @csrf
@@ -58,10 +81,17 @@
     .search-item:hover { background-color: #f8f9fa; }
     .item-card { border: 1px solid #e9ecef; border-radius: 12px; margin-bottom: 1rem; padding: 1rem; background: #fafafa; }
     .qty-label { font-weight: bold; color: #6c757d; margin-bottom: 0.5rem; display: block; }
+    .order-sync-status { font-size: 0.9rem; font-weight: 600; }
+    .order-sync-status--saving,
+    .order-sync-status--syncing { color: #0d6efd; }
+    .order-sync-status--saved { color: #198754; }
+    .order-sync-status--offline { color: #6c757d; }
+    .order-sync-status--sync_failed { color: #dc3545; }
 </style>
 @endsection
 
 @section('scripts')
+<script src="{{ asset('assets/js/worker-order-offline.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
@@ -73,6 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const customerNameInput = document.querySelector('input[name="customer_name"]');
     const notesInput = document.querySelector('textarea[name="notes"]');
     const addCustomProductBtn = document.getElementById('addCustomProductBtn');
+    const syncStatusEl = document.getElementById('orderSyncStatus');
     
     @php
         $mappedItems = $order->items->map(function($item) {
@@ -85,22 +116,83 @@ document.addEventListener('DOMContentLoaded', function() {
             ];
         });
     @endphp
+    // Page-local only — scoped to this order's URL (/order/{id}/edit). No shared sessionStorage.
     let items = @json($mappedItems);
     let searchTimeout;
-    let saveTimeout;
+    const updateUrl = @json(route('worker.order.update', $order));
+    const submitUrl = @json(route('worker.order.submit', $order));
+    const orderId = {{ (int) $order->id }};
+    const initialRevision = {{ (int) ($order->content_revision ?? 0) }};
+
+    function getCsrfToken() {
+        const el = orderForm.querySelector('input[name="_token"]');
+        return el ? el.value : '';
+    }
+
+    function getSnapshot() {
+        return {
+            customer_name: customerNameInput.value,
+            notes: notesInput.value,
+            items: items.map(function (item) {
+                return {
+                    id: item.id,
+                    designation: item.designation,
+                    qtu: item.qtu,
+                    box: item.box,
+                    units: item.units
+                };
+            })
+        };
+    }
+
+    function applySnapshot(snap) {
+        customerNameInput.value = snap.customer_name || '';
+        notesInput.value = snap.notes || '';
+        items = Array.isArray(snap.items) ? snap.items.slice() : [];
+        renderItems();
+    }
+
+    function buildFormData(record) {
+        const formData = new FormData();
+        formData.append('_token', getCsrfToken());
+        formData.append('customer_name', record.customer_name || '');
+        formData.append('notes', record.notes || '');
+        (record.items || []).forEach(function (item, index) {
+            if (item.id) {
+                formData.append('items[' + index + '][product_id]', item.id);
+            }
+            formData.append('items[' + index + '][designation]', item.designation);
+            formData.append('items[' + index + '][qtu]', item.qtu);
+            formData.append('items[' + index + '][box]', item.box);
+            formData.append('items[' + index + '][units]', item.units);
+        });
+        return formData;
+    }
+
+    const offlineSync = window.GroproWorkerOrderOffline.createOrderOfflineSync({
+        orderId: orderId,
+        contentRevision: initialRevision,
+        updateUrl: updateUrl,
+        submitUrl: submitUrl,
+        statusEl: syncStatusEl,
+        getSnapshot: getSnapshot,
+        applySnapshot: applySnapshot,
+        buildFormData: buildFormData,
+        getCsrfToken: getCsrfToken,
+        onConflict: function (data) {
+            const msg = (data && data.message)
+                ? data.message
+                : 'Conflit avec le serveur. Vos modifications locales sont conservées; rechargez la page pour voir la version serveur.';
+            alert(msg);
+        },
+        onSyncFailed: function () {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Soumettre la commande';
+        }
+    });
 
     function autoSave() {
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => {
-            const formData = new FormData(orderForm);
-            fetch(`{{ route('worker.order.update', $order) }}`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            }).catch(console.error);
-        }, 1000);
+        offlineSync.saveLocalAndQueueSync();
     }
 
     customerNameInput.addEventListener('input', autoSave);
@@ -126,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
         autoSave();
     });
 
-    // Search functionality
+    // Search functionality (requires network — catalog is whatever was already loaded / searchable online)
     searchInput.addEventListener('input', function() {
         clearTimeout(searchTimeout);
         const query = this.value.trim();
@@ -155,6 +247,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             searchResults.appendChild(div);
                         });
                     }
+                    searchResults.style.display = 'block';
+                })
+                .catch(function () {
+                    searchResults.innerHTML = '<div class="list-group-item text-muted p-3">Recherche indisponible hors ligne</div>';
                     searchResults.style.display = 'block';
                 });
         }, 300);
@@ -194,7 +290,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Remove old dynamic rows
         document.querySelectorAll('.item-row').forEach(row => row.remove());
 
-        items.forEach((item, index) => {
+        // Display newest first; keep original array indices for form names / qty / remove
+        for (let index = items.length - 1; index >= 0; index--) {
+            const item = items[index];
             const div = document.createElement('div');
             div.className = 'item-row item-card shadow-sm';
             div.innerHTML = `
@@ -220,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
             itemsList.appendChild(div);
-        });
+        }
 
         // Attach listeners
         document.querySelectorAll('.remove-btn').forEach(btn => {
@@ -276,26 +374,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = 'Envoi en cours...';
-        
-        // Final submit
-        const formData = new FormData(orderForm);
-        fetch(`{{ route('worker.order.submit', $order) }}`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
-        }).then(res => res.json()).then(data => {
-            if (data.success) {
-                window.location.href = data.redirect;
-            } else {
-                alert('Une erreur est survenue.');
+        submitBtn.innerHTML = navigator.onLine ? 'Envoi en cours...' : 'Hors ligne — envoi à la reconnexion...';
+
+        // Queue local draft + submit; sync layer redirects when server confirms.
+        offlineSync.queueSubmit().then(function () {
+            if (!navigator.onLine) {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = 'Soumettre la commande';
+                alert('Hors ligne : la commande est enregistrée localement et sera soumise à la reconnexion.');
             }
-        }).catch(err => {
+        }).catch(function (err) {
             console.error(err);
             alert('Une erreur est survenue.');
             submitBtn.disabled = false;
@@ -303,7 +391,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    renderItems(); // Render initial items
+    renderItems();
+    offlineSync.restoreOnLoad().catch(function (err) {
+        console.error('Draft restore failed', err);
+    });
 });
 </script>
 @endsection
