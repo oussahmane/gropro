@@ -25,6 +25,13 @@
     </td>
     <td>{{ $order->created_at->format('d/m/Y H:i') }}</td>
     <td>
+        @if($order->cashier)
+            <span class="small text-muted">{{ $order->cashier->name }}</span>
+        @else
+            <span class="small text-muted">—</span>
+        @endif
+    </td>
+    <td>
         <div class="d-flex gap-2">
             <a href="{{ route('admin.orders.show', $order) }}" class="btn btn-sm btn-primary">Voir</a>
             <form action="{{ route('admin.orders.destroy', $order) }}" method="POST" onsubmit="return confirm('Supprimer cette commande ?');">
@@ -37,6 +44,6 @@
 </tr>
 @empty
 <tr>
-    <td colspan="6" class="text-center py-4">Aucune commande trouvée.</td>
+    <td colspan="7" class="text-center py-4">Aucune commande trouvée.</td>
 </tr>
 @endforelse

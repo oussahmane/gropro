@@ -15,20 +15,31 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
-        $orders = Order::with('worker')->orderBy('created_at', 'desc')->get();
+        $orders = Order::with(['worker', 'cashier'])->orderBy('created_at', 'desc')->get();
         return view('admin.dashboard', compact('orders'));
     }
 
     public function ordersPartial()
     {
-        $orders = Order::with('worker')->orderBy('created_at', 'desc')->get();
+        $orders = Order::with(['worker', 'cashier'])->orderBy('created_at', 'desc')->get();
         return view('admin.partials.orders_table', compact('orders'));
     }
 
     public function showOrder(Order $order)
     {
-        $order->load(['items', 'worker']);
-        return view('admin.orders.show', compact('order'));
+        $cashier = auth()->user();
+        $ownsClaim = $order->claimFor($cashier);
+        $order->load(['items', 'worker', 'cashier']);
+
+        $canEdit = $ownsClaim || $order->isTerminal();
+        $claimMessage = null;
+
+        if (! $ownsClaim && $order->isClaimedByAnother($cashier)) {
+            $claimMessage = 'This order is being handled by another cashier.';
+            $canEdit = false;
+        }
+
+        return view('admin.orders.show', compact('order', 'canEdit', 'claimMessage'));
     }
 
     public function updateOrderStatus(Request $request, Order $order)
@@ -36,15 +47,83 @@ class AdminController extends Controller
         $request->validate([
             'status' => ['required', Rule::in(['draft', 'received', 'processing', 'completed', 'cancelled'])]
         ]);
-        
-        $order->update(['status' => $request->status]);
+
+        $denied = false;
+
+        DB::transaction(function () use ($request, $order, &$denied) {
+            $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $cashier = auth()->user();
+
+            if ($locked->isClaimedByAnother($cashier) && ! $locked->isTerminal()) {
+                $denied = true;
+
+                return;
+            }
+
+            // Ensure the acting cashier owns non-terminal writes.
+            if ($locked->cashier_id === null && ! $locked->isTerminal()) {
+                $locked->forceFill([
+                    'cashier_id' => $cashier->id,
+                    'claimed_at' => now(),
+                ]);
+            }
+
+            $locked->status = $request->status;
+
+            // Hook release into completion/cancellation without rewriting status rules.
+            if (in_array($request->status, ['completed', 'cancelled'], true)) {
+                $locked->cashier_id = null;
+                $locked->claimed_at = null;
+            }
+
+            $locked->save();
+            $order->refresh();
+        });
+
+        if ($denied) {
+            return back()->with('error', 'This order is being handled by another cashier.');
+        }
+
         return back()->with('success', 'Order status updated.');
     }
 
     public function destroyOrder(Order $order)
     {
-        $order->delete();
+        $denied = false;
+
+        DB::transaction(function () use ($order, &$denied) {
+            $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->isClaimedByAnother(auth()->user()) && ! $locked->isTerminal()) {
+                $denied = true;
+
+                return;
+            }
+
+            $locked->delete();
+        });
+
+        if ($denied) {
+            return back()->with('error', 'This order is being handled by another cashier.');
+        }
+
         return redirect()->route('admin.dashboard')->with('success', 'Order removed successfully.');
+    }
+
+    public function releaseOrderClaim(Order $order)
+    {
+        $order->releaseClaim();
+
+        return back()->with('success', 'Order claim released.');
+    }
+
+    public function reassignOrderClaim(Order $order)
+    {
+        $order->reassignTo(auth()->user());
+
+        return redirect()
+            ->route('admin.orders.show', $order)
+            ->with('success', 'Order reassigned to you.');
     }
 
     public function catalog()

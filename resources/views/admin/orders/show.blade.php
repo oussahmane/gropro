@@ -8,6 +8,36 @@
             <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary">Retour au tableau de bord</a>
         </div>
 
+        @if(session('error'))
+            <div class="alert alert-danger">{{ session('error') }}</div>
+        @endif
+        @if(session('success'))
+            <div class="alert alert-success">{{ session('success') }}</div>
+        @endif
+
+        @if(!empty($claimMessage))
+            <div class="alert alert-warning">
+                {{ $claimMessage }}
+                @if($order->cashier)
+                    <span class="d-block mt-1 small">Handled by: {{ $order->cashier->name }}</span>
+                @endif
+            </div>
+            <div class="d-flex gap-2 mb-4">
+                <form action="{{ route('admin.orders.release-claim', $order) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="btn btn-outline-warning btn-sm">Release claim</button>
+                </form>
+                <form action="{{ route('admin.orders.reassign-claim', $order) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="btn btn-warning btn-sm">Reassign to me</button>
+                </form>
+            </div>
+        @elseif($order->cashier_id && $order->isClaimedBy(auth()->user()))
+            <div class="alert alert-info py-2 small mb-4">
+                You are handling this order.
+            </div>
+        @endif
+
         <div class="card shadow-sm mb-4">
             <div class="card-body">
                 <div class="row mb-3">
@@ -31,6 +61,7 @@
                 <div class="row mb-3 align-items-center">
                     <div class="col-sm-4 text-muted">Statut</div>
                     <div class="col-sm-8 d-flex justify-content-between align-items-center">
+                        @if($canEdit ?? true)
                         <form action="{{ route('admin.orders.update-status', $order) }}" method="POST" class="d-flex align-items-center mb-0">
                             @csrf
                             <select name="status" class="form-select w-auto me-2">
@@ -50,6 +81,19 @@
                             @method('DELETE')
                             <button type="submit" class="btn btn-outline-danger btn-sm">Supprimer la commande</button>
                         </form>
+                        @else
+                        <div>
+                            <span class="badge
+                                @if($order->status == 'received') bg-secondary
+                                @elseif($order->status == 'processing') bg-warning text-dark
+                                @elseif($order->status == 'completed') bg-success
+                                @elseif($order->status == 'draft') bg-info text-dark
+                                @else bg-danger @endif">
+                                {{ $order->status }}
+                            </span>
+                            <span class="text-muted small ms-2">Editing locked</span>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>

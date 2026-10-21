@@ -28,6 +28,7 @@
                             <th>Employé</th>
                             <th>Statut</th>
                             <th>Date</th>
+                            <th>Caissier</th>
                             <th>Actions</th>
                         </tr>
                     </thead>

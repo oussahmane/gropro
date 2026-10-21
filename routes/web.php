@@ -25,6 +25,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/orders/partial', [AdminController::class, 'ordersPartial'])->name('orders.partial');
         Route::get('/orders/{order}', [AdminController::class, 'showOrder'])->name('orders.show');
         Route::post('/orders/{order}/status', [AdminController::class, 'updateOrderStatus'])->name('orders.update-status');
+        Route::post('/orders/{order}/release-claim', [AdminController::class, 'releaseOrderClaim'])->name('orders.release-claim');
+        Route::post('/orders/{order}/reassign-claim', [AdminController::class, 'reassignOrderClaim'])->name('orders.reassign-claim');
         Route::delete('/orders/{order}', [AdminController::class, 'destroyOrder'])->name('orders.destroy');
 
         // Catalog
